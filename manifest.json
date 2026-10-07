@@ -1,0 +1,10 @@
+{
+  "name": "Egg Business Tracker",
+  "short_name": "Egg Tracker",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#2563eb",
+  "description": "Track egg sales, payments, expenses and monthly profit/loss.",
+  "icons": []
+}

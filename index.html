@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#2563eb">
+<link rel="manifest" href="manifest.json">
+<title>Egg Business Tracker</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f5f7fb;color:#172033}
+header{background:#2563eb;color:#fff;padding:20px 16px}.wrap{max-width:900px;margin:auto}
+h1{margin:0;font-size:24px}header p{margin:5px 0 0;opacity:.9}
+main{padding:16px}.card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px;margin-bottom:14px}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.stat{padding:14px;border:1px solid #e5e7eb;border-radius:14px}.stat span{font-size:13px;color:#667085}.stat strong{display:block;font-size:21px;margin-top:5px}
+.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:14px}.tabs button{white-space:nowrap}
+button{border:0;border-radius:10px;padding:11px 14px;min-height:44px;font-weight:700;cursor:pointer;background:#e5e7eb;color:#172033}
+button.primary{background:#2563eb;color:white}button.danger{background:#fee2e2;color:#991b1b}
+form{display:grid;grid-template-columns:1fr 1fr;gap:12px}label{font-size:13px;color:#667085;display:block;margin-bottom:5px}
+input,select{width:100%;padding:11px;border:1px solid #d0d5dd;border-radius:10px;font-size:16px;background:#fff}
+.full{grid-column:1/-1}.hidden{display:none}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:650px}th,td{text-align:left;padding:10px;border-bottom:1px solid #eee;font-size:13px}
+.notice{font-size:13px;color:#667085}.positive{color:#087443}.negative{color:#b42318}
+@media(max-width:600px){form{grid-template-columns:1fr}.full{grid-column:auto}.stats{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1>🥚 Egg Business Tracker</h1><p>Sales • Payments • Expenses • Monthly Profit/Loss</p></div></header>
+<main class="wrap">
+<div class="card">
+<label for="month">Report month</label><input id="month" type="month">
+</div>
+
+<div class="stats">
+<div class="stat"><span>Eggs sold</span><strong id="eggs">0</strong></div>
+<div class="stat"><span>Total sales</span><strong id="sales">₹0</strong></div>
+<div class="stat"><span>Expenses</span><strong id="expenses">₹0</strong></div>
+<div class="stat"><span>Profit / Loss</span><strong id="profit">₹0</strong></div>
+</div>
+
+<div class="tabs">
+<button class="tab active" data-tab="sale">Add Sale</button>
+<button class="tab" data-tab="expense">Add Expense</button>
+<button class="tab" data-tab="records">Records</button>
+</div>
+
+<section id="salePanel" class="card">
+<h2>Record eggs given/sold</h2>
+<form id="saleForm">
+<div><label>Date</label><input id="saleDate" type="date" required></div>
+<div><label>Customer</label><input id="customer" required placeholder="Customer name"></div>
+<div><label>Egg quantity</label><input id="qty" type="number" min="1" step="1" required placeholder="120"></div>
+<div><label>Price per egg (₹)</label><input id="price" type="number" min="0" step=".01" required placeholder="7"></div>
+<div><label>Payment status</label><select id="status"><option value="paid">Paid</option><option value="unpaid">Unpaid</option><option value="partial">Partially paid</option></select></div>
+<div><label>Amount received (₹)</label><input id="received" type="number" min="0" step=".01" value="0"></div>
+<div class="full"><button class="primary" type="submit">Add Sale</button></div>
+</form>
+</section>
+
+<section id="expensePanel" class="card hidden">
+<h2>Record expense</h2>
+<form id="expenseForm">
+<div><label>Date</label><input id="expenseDate" type="date" required></div>
+<div><label>Category</label><select id="category"><option>Egg purchase</option><option>Transport</option><option>Packaging</option><option>Feed</option><option>Electricity</option><option>Other</option></select></div>
+<div><label>Description</label><input id="description" required placeholder="What was it for?"></div>
+<div><label>Amount (₹)</label><input id="expenseAmount" type="number" min="0" step=".01" required></div>
+<div class="full"><button class="primary" type="submit">Add Expense</button></div>
+</form>
+</section>
+
+<section id="recordsPanel" class="card hidden">
+<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h2>Records</h2><span class="notice" id="outstanding"></span></div>
+<div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Customer/Description</th><th>Qty</th><th>Amount</th><th>Status</th><th></th></tr></thead><tbody id="records"></tbody></table></div>
+</section>
+
+<section class="card">
+<h2>Monthly summary</h2>
+<p id="summary" class="notice"></p>
+</section>
+
+<section class="card">
+<h2>Data backup</h2>
+<p class="notice">Use Export Backup regularly so you have a copy of your business records.</p>
+<button id="exportBtn" class="primary">Export Backup</button>
+<button id="importBtn">Import Backup</button>
+<input id="importFile" type="file" accept=".json" hidden>
+<button id="clearBtn" class="danger">Delete All Data</button>
+</section>
+</main>
+
+<script>
+const KEY="egg_business_tracker_v1";
+let data={sales:[],expenses:[]};
+try{const x=JSON.parse(localStorage.getItem(KEY));if(x&&Array.isArray(x.sales)&&Array.isArray(x.expenses))data=x}catch(e){}
+const $=id=>document.getElementById(id);
+const pad=n=>String(n).padStart(2,"0");
+const d=new Date(), today=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+$("month").value=today.slice(0,7);$("saleDate").value=today;$("expenseDate").value=today;
+const money=n=>"₹"+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2});
+const save=()=>localStorage.setItem(KEY,JSON.stringify(data));
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function render(){
+ const m=$("month").value, ss=data.sales.filter(x=>x.date.slice(0,7)===m), ee=data.expenses.filter(x=>x.date.slice(0,7)===m);
+ const eggs=ss.reduce((a,x)=>a+x.qty,0), sales=ss.reduce((a,x)=>a+x.total,0), exp=ee.reduce((a,x)=>a+x.amount,0);
+ const received=ss.reduce((a,x)=>a+x.received,0), due=Math.max(0,sales-received), profit=sales-exp;
+ $("eggs").textContent=eggs.toLocaleString("en-IN");$("sales").textContent=money(sales);$("expenses").textContent=money(exp);
+ $("profit").textContent=money(profit);$("profit").className=profit>=0?"positive":"negative";
+ $("outstanding").textContent="Outstanding: "+money(due);
+ $("summary").textContent=`Received ${money(received)} • Outstanding ${money(due)} • Profit/Loss ${money(profit)}`;
+ let rows=[];
+ ss.forEach(x=>rows.push(`<tr><td>${x.date}</td><td>Sale</td><td>${esc(x.customer)}</td><td>${x.qty}</td><td>${money(x.total)}</td><td>${x.status}</td><td><button class="danger del" data-type="sale" data-id="${x.id}">Delete</button></td></tr>`));
+ ee.forEach(x=>rows.push(`<tr><td>${x.date}</td><td>Expense</td><td>${esc(x.description)} (${esc(x.category)})</td><td>—</td><td>${money(x.amount)}</td><td>—</td><td><button class="danger del" data-type="expense" data-id="${x.id}">Delete</button></td></tr>`));
+ $("records").innerHTML=rows.length?rows.join(""):`<tr><td colspan="7">No records for this month.</td></tr>`;
+ document.querySelectorAll(".del").forEach(b=>b.onclick=()=>{const a=b.dataset.type==="sale"?data.sales:data.expenses;const i=a.findIndex(x=>x.id===b.dataset.id);if(i>=0)a.splice(i,1);save();render()});
+}
+document.querySelectorAll(".tab").forEach(btn=>btn.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));btn.classList.add("active");$("salePanel").classList.toggle("hidden",btn.dataset.tab!=="sale");$("expensePanel").classList.toggle("hidden",btn.dataset.tab!=="expense");$("recordsPanel").classList.toggle("hidden",btn.dataset.tab!=="records");render()});
+$("month").onchange=render;
+$("status").onchange=()=>{if($("status").value==="paid")$("received").value=""};
+$("saleForm").onsubmit=e=>{e.preventDefault();const qty=Number($("qty").value),price=Number($("price").value),total=qty*price;let received=Number($("received").value)||0;if($("status").value==="paid")received=total;received=Math.min(Math.max(0,received),total);data.sales.push({id:crypto.randomUUID?crypto.randomUUID():Date.now()+"",date:$("saleDate").value,customer:$("customer").value.trim(),qty,price,total,status:$("status").value,received});save();e.target.reset();$("saleDate").value=today;render()};
+$("expenseForm").onsubmit=e=>{e.preventDefault();data.expenses.push({id:crypto.randomUUID?crypto.randomUUID():Date.now()+"",date:$("expenseDate").value,category:$("category").value,description:$("description").value.trim(),amount:Number($("expenseAmount").value)||0});save();e.target.reset();$("expenseDate").value=today;render()};
+$("exportBtn").onclick=()=>{const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="egg-business-backup.json";a.click();URL.revokeObjectURL(url)};
+$("importBtn").onclick=()=>$("importFile").click();
+$("importFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(!Array.isArray(x.sales)||!Array.isArray(x.expenses))throw Error();data=x;save();render();alert("Backup imported successfully.")}catch(err){alert("Invalid backup file.")}};r.readAsText(f)};
+$("clearBtn").onclick=()=>{if(confirm("Delete ALL sales and expenses? This cannot be undone unless you have a backup.")){data={sales:[],expenses:[]};save();render()}};
+render();
+if("serviceWorker" in navigator)navigator.serviceWorker.register("service-worker.js").catch(()=>{});
+</script>
+</body></html>
